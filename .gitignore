@@ -1,2 +1,4 @@
 .venv
-
+__pycache__
+chroma_db/
+results.json
