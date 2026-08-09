@@ -33,5 +33,5 @@ def retrieve(query, k=3):
 
 
 if __name__ == "__main__":
-    r = retrieve("How many cups can it brew? What is the apparatus called?")
+    r = retrieve("How many cups can it brew?")
     print(r)
