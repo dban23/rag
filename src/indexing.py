@@ -52,7 +52,8 @@ def build_index(
             metadatas.append({"source": doc["filename"], "chunk_index": i})
             ids.append(f"{doc['filename']}::{i}")
 
-    collection.add(documents=documents, metadatas=metadatas, ids=ids)
+    if documents:
+        collection.add(documents=documents, metadatas=metadatas, ids=ids)
     if empty_files:
         print(
             f"[WARNING] skipped {len(empty_files)} file(s) with no text: "

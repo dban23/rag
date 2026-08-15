@@ -45,6 +45,30 @@ with st.sidebar:
     for name in files:
         st.write(f"- {name}")
 
+    st.divider()
+    st.markdown("**Delete a file**")
+    if not files:
+        st.write("No files to delete.")
+    else:
+        file_to_delete = st.selectbox("Choose a file", files)
+        confirm_delete = st.checkbox(
+            "I understand this removes the file from data/ permanently.",
+            key="delete_confirm",
+        )
+        if st.button("Delete file", disabled=not confirm_delete):
+            try:
+                with st.spinner("Deleting and re-indexing..."):
+                    (DATA_DIR / file_to_delete).unlink()
+                    collection = build_index()
+                st.session_state["delete_confirm"] = False
+                st.success(
+                    f"Deleted {file_to_delete}. "
+                    f"Index rebuilt: {collection.count()} chunks."
+                )
+                st.rerun()
+            except Exception as e:
+                st.error(f"Delete failed.\n\n{e}")
+
 with st.form("ask"):
     question = st.text_input(
         "Your question", placeholder="e.g. How often should I descale?"
@@ -55,7 +79,7 @@ if submitted and question.strip():
     try:
         with st.spinner("Searching and generating..."):
             hits = retrieve(question)
-            answer = generate(question, hits)
+            answer = generate(question, hits) if hits else None
     except NotFoundError:
         st.info(
             "No documents indexed yet. Upload a file in the sidebar "
@@ -67,11 +91,17 @@ if submitted and question.strip():
             f"(hint: `setsid nohup ~/.local/bin/ollama serve ...`)\n\n{e}"
         )
     else:
-        st.markdown(answer)
-        with st.expander(f"Retrieved passages ({len(hits)})"):
-            for i, hit in enumerate(hits, start=1):
-                st.markdown(
-                    f"**{i}. {hit['source']}** — chunk {hit['chunk_index']} "
-                    f"· distance {hit['distance']:.3f}"
-                )
-                st.write(hit["text"])
+        if not hits:
+            st.info(
+                "No indexed passages match your question. "
+                "Check the documents in the sidebar."
+            )
+        else:
+            st.markdown(answer)
+            with st.expander(f"Retrieved passages ({len(hits)})"):
+                for i, hit in enumerate(hits, start=1):
+                    st.markdown(
+                        f"**{i}. {hit['source']}** — chunk {hit['chunk_index']} "
+                        f"· distance {hit['distance']:.3f}"
+                    )
+                    st.write(hit["text"])
