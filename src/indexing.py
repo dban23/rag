@@ -36,14 +36,28 @@ def build_index(
     documents = []
     metadatas = []
     ids = []
+    empty_files = []
     for doc in load_documents(data_dir):
         chunks = chunk_text(doc["text"])
+        if not chunks:
+            empty_files.append(doc["filename"])
+            print(
+                f"[WARNING] {doc['filename']}: 0 chunks extracted "
+                f"(empty or unreadable file). It will NOT be indexed."
+            )
+            continue
+        print(f"  indexed {doc['filename']}: {len(chunks)} chunks")
         for i, chunk in enumerate(chunks):
             documents.append(chunk)
             metadatas.append({"source": doc["filename"], "chunk_index": i})
             ids.append(f"{doc['filename']}::{i}")
 
     collection.add(documents=documents, metadatas=metadatas, ids=ids)
+    if empty_files:
+        print(
+            f"[WARNING] skipped {len(empty_files)} file(s) with no text: "
+            f"{', '.join(empty_files)}"
+        )
     return collection
 
 

@@ -26,7 +26,16 @@ with st.sidebar:
                 path = DATA_DIR / Path(uploaded_file.name).name
                 path.write_bytes(uploaded_file.getvalue())
                 collection = build_index()
-            st.success(f"Indexed {collection.count()} chunks from {uploaded_file.name}.")
+            indexed = collection.get(include=["metadatas"])
+            sources = {m["source"] for m in indexed["metadatas"]}
+            if uploaded_file.name in sources:
+                st.success(f"Indexed {collection.count()} chunks from {uploaded_file.name}.")
+            else:
+                st.warning(
+                    f"Uploaded {uploaded_file.name}, but it produced 0 chunks. "
+                    f"If it is a PDF, it may be scanned or use outline/vector fonts "
+                    f"with no extractable text. See the server console for details."
+                )
         except Exception as e:
             st.error(f"Indexing failed. Is Ollama running?\n\n{e}")
 

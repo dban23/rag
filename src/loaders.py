@@ -19,6 +19,7 @@ def load_documents(data_dir=DATA_DIR):
             results.append({"filename": f.name, "text": text})
         elif ext == ".pdf":
             pdf = PdfReader(f)
+            total_pages = len(pdf.pages)
             pages_text = []
             for page in pdf.pages:
                 page_text = page.extract_text()
@@ -26,6 +27,13 @@ def load_documents(data_dir=DATA_DIR):
                     pages_text.append(page_text)
 
             text = "\n".join(pages_text)
+            if not text.strip():
+                print(
+                    f"[WARNING] {f.name}: no extractable text "
+                    f"({len(pages_text)} of {total_pages} pages). "
+                    f"The PDF is likely scanned or uses outline/vector fonts; "
+                    f"text extraction returned nothing."
+                )
             results.append({"filename": f.name, "text": text})
         else:
             print(f"Skipping unsupported file: {f.name}")
