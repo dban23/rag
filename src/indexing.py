@@ -10,11 +10,15 @@ COLLECTION_NAME = "product_manual"
 
 
 class OllamaEmbedder(EmbeddingFunction):
-    def __init__(self, model="nomic-embed-text"):
+    def __init__(self, model="nomic-embed-text", prefix="search_document: "):
         self.model = model
+        self.prefix = prefix
 
     def __call__(self, input):
-        result = ollama.embed(model=self.model, input=list(input))
+        result = ollama.embed(
+            model=self.model,
+            input=[self.prefix + t for t in list(input)],
+        )
         return result.embeddings
 
 

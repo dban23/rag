@@ -1,24 +1,38 @@
+import re
+
 from loaders import load_documents
+
+
+def _split_sentences(text):
+    parts = re.split(r"(?<=[.!?])\s+|\n+", text)
+    return [p.strip() for p in parts if p.strip()]
 
 
 def chunk_text(text, chunk_size=500, overlap=50):
     if not text.strip():
         return []
 
-    step = chunk_size - overlap
-    if step <= 0:
-        raise ValueError(
-            f"overlap ({overlap}) must be smaller than chunk_size ({chunk_size})"
-        )
+    sentences = _split_sentences(text)
+    if not sentences:
+        return []
 
     chunks = []
-    start = 0
-    while start < len(text):
-        end = start + chunk_size
-        chunks.append(text[start:end])
-        if end >= len(text):
-            break
-        start += step
+    cur = ""
+    for sent in sentences:
+        if cur and len(cur) + len(sent) + 1 > chunk_size:
+            chunks.append(cur)
+            cur = sent
+        else:
+            cur = (cur + " " + sent).strip() if cur else sent
+    if cur:
+        chunks.append(cur)
+
+    if overlap > 0 and len(chunks) > 1:
+        overlapped = [chunks[0]]
+        for i in range(1, len(chunks)):
+            tail = overlapped[-1][-overlap:]
+            overlapped.append((tail + chunks[i]).strip())
+        chunks = overlapped
 
     return chunks
 

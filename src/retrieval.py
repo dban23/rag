@@ -3,13 +3,13 @@ import chromadb
 from indexing import OllamaEmbedder, CHROMA_DIR, COLLECTION_NAME
 
 
-def retrieve(query, k=3):
+def retrieve(query, k=5):
     if not query.strip():
         return []
 
     client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     collection = client.get_collection(
-        COLLECTION_NAME, embedding_function=OllamaEmbedder()
+        COLLECTION_NAME, embedding_function=OllamaEmbedder(prefix="search_query: ")
     )
 
     results = collection.query(query_texts=[query], n_results=k)
