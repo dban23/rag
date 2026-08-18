@@ -47,6 +47,23 @@ with st.sidebar:
 
     st.divider()
     st.markdown("**Delete a file**")
+
+    if st.session_state.pop("_pending_delete", False):
+        st.session_state["delete_confirm"] = False
+        name = st.session_state.pop("_pending_delete_name", None)
+        if name:
+            try:
+                with st.spinner("Deleting and re-indexing..."):
+                    (DATA_DIR / name).unlink()
+                    collection = build_index()
+                st.success(
+                    f"Deleted {name}. "
+                    f"Index rebuilt: {collection.count()} chunks."
+                )
+                st.rerun()
+            except Exception as e:
+                st.error(f"Delete failed.\n\n{e}")
+
     if not files:
         st.write("No files to delete.")
     else:
@@ -56,18 +73,9 @@ with st.sidebar:
             key="delete_confirm",
         )
         if st.button("Delete file", disabled=not confirm_delete):
-            try:
-                with st.spinner("Deleting and re-indexing..."):
-                    (DATA_DIR / file_to_delete).unlink()
-                    collection = build_index()
-                st.session_state["delete_confirm"] = False
-                st.success(
-                    f"Deleted {file_to_delete}. "
-                    f"Index rebuilt: {collection.count()} chunks."
-                )
-                st.rerun()
-            except Exception as e:
-                st.error(f"Delete failed.\n\n{e}")
+            st.session_state["_pending_delete_name"] = file_to_delete
+            st.session_state["_pending_delete"] = True
+            st.rerun()
 
 with st.form("ask"):
     question = st.text_input(
