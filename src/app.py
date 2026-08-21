@@ -6,7 +6,7 @@ from chromadb.errors import NotFoundError
 from generate import generate
 from indexing import build_index
 from loaders import DATA_DIR
-from retrieval import retrieve
+from retrieval import Hit, retrieve
 
 st.set_page_config(page_title="Local RAG Demo", layout="centered")
 st.title("Local RAG")
@@ -86,8 +86,8 @@ with st.form("ask"):
 if submitted and question.strip():
     try:
         with st.spinner("Searching and generating..."):
-            hits = retrieve(question)
-            answer = generate(question, hits) if hits else None
+            hits: list[Hit] = retrieve(question)
+            answer: str | None = generate(question, hits) if hits else None
     except NotFoundError:
         st.info(
             "No documents indexed yet. Upload a file in the sidebar "
@@ -109,7 +109,7 @@ if submitted and question.strip():
             with st.expander(f"Retrieved passages ({len(hits)})"):
                 for i, hit in enumerate(hits, start=1):
                     st.markdown(
-                        f"**{i}. {hit['source']}** — chunk {hit['chunk_index']} "
-                        f"· distance {hit['distance']:.3f}"
+                        f"**{i}. {hit.source}** — chunk {hit.chunk_index} "
+                        f"· distance {hit.distance:.3f}"
                     )
-                    st.write(hit["text"])
+                    st.write(hit.text)

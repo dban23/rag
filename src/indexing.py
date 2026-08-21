@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import chromadb
 import ollama
 from chromadb.api.types import EmbeddingFunction
@@ -10,11 +12,11 @@ COLLECTION_NAME = "product_manual"
 
 
 class OllamaEmbedder(EmbeddingFunction):
-    def __init__(self, model="nomic-embed-text", prefix="search_document: "):
+    def __init__(self, model: str = "nomic-embed-text", prefix: str = "search_document: ") -> None:
         self.model = model
         self.prefix = prefix
 
-    def __call__(self, input):
+    def __call__(self, input: list[str]) -> list[list[float]]:
         result = ollama.embed(
             model=self.model,
             input=[self.prefix + t for t in list(input)],
@@ -23,8 +25,10 @@ class OllamaEmbedder(EmbeddingFunction):
 
 
 def build_index(
-    data_dir=DATA_DIR, persist_dir=CHROMA_DIR, collection_name=COLLECTION_NAME
-):
+    data_dir: Path = DATA_DIR,
+    persist_dir: Path = CHROMA_DIR,
+    collection_name: str = COLLECTION_NAME,
+) -> chromadb.Collection:
     client = chromadb.PersistentClient(path=str(persist_dir))
 
     existing = [c.name for c in client.list_collections()]

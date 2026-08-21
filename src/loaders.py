@@ -5,7 +5,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 
 
-def load_documents(data_dir=DATA_DIR):
+def load_documents(data_dir: Path = DATA_DIR) -> list[dict[str, str]]:
     data_dir = Path(data_dir)
     files = data_dir.glob("*")
 

@@ -3,12 +3,12 @@ import re
 from loaders import load_documents
 
 
-def _split_sentences(text):
+def _split_sentences(text: str) -> list[str]:
     parts = re.split(r"(?<=[.!?])\s+|\n+", text)
     return [p.strip() for p in parts if p.strip()]
 
 
-def chunk_text(text, chunk_size=500, overlap=50):
+def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
     if not text.strip():
         return []
 
