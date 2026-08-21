@@ -13,6 +13,7 @@ RUN pip install --no-index --find-links=./wheels -r requirements.txt && rm -rf .
 RUN useradd --create-home --uid 1000 --shell /bin/bash raguser
 
 COPY src ./src
+COPY tests ./tests
 COPY data ./data
 
 RUN mkdir -p /app/data /app/chroma_db \

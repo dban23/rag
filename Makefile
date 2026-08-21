@@ -1,4 +1,4 @@
-.PHONY: help setup pull-llm index up down logs cleanup
+.PHONY: help setup pull-llm index up down logs cleanup test
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -21,6 +21,9 @@ down: ## Stop the stack (keeps volumes and models)
 
 logs: ## Follow app logs
 	docker compose logs -f app
+
+test: ## Run all tests
+	docker compose run --rm app pytest tests/ -v
 
 cleanup: ## Wipe containers AND volumes (models, index, uploads) - DANGER
 	docker compose down -v

@@ -113,6 +113,24 @@ question itself and searches existing vectors — no re-indexing per question.
 | Similarity metric | `src/indexing.py` | cosine |
 | Ollama endpoint | `docker-compose.yml` (`OLLAMA_HOST`) | `http://ollama:11434` |
 
+## Testing
+
+Run the full test suite inside the Docker container:
+
+```bash
+make test
+```
+
+Tests run against the built image (no local Python or Ollama needed). External
+services (Ollama, ChromaDB) are mocked so tests are fast and deterministic.
+
+| Test file | What it covers |
+|---|---|
+| `tests/test_chunking.py` | Sentence splitting, chunk packing, overlap logic, no mid-word cuts |
+| `tests/test_loaders.py` | `.txt`/`.md`/`.pdf` loading, empty/mixed-page PDFs, unsupported formats |
+| `tests/test_generate.py` | Citation resolution, Ollama call parameters, context building |
+| `tests/test_retrieval.py` | Query validation, Hit object creation, ChromaDB mock integration |
+
 ## Troubleshooting
 
 **The app says "Something went wrong. Is Ollama running?"**

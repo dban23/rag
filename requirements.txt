@@ -2,3 +2,4 @@ ollama==0.6.2
 chromadb==1.5.9
 pypdf==6.15.0
 streamlit==1.61.1
+pytest==8.4.1
