@@ -1,7 +1,11 @@
+import hashlib
+import os
 from pathlib import Path
 
 import chromadb
+import numpy as np
 import ollama
+import redis
 from chromadb.api.types import EmbeddingFunction
 
 from chunking import chunk_text
@@ -10,18 +14,72 @@ from loaders import DATA_DIR, PROJECT_ROOT, load_documents
 CHROMA_DIR = PROJECT_ROOT / "chroma_db"
 COLLECTION_NAME = "product_manual"
 
+CACHE_TTL = 86400  # 24 hours
+
 
 class OllamaEmbedder(EmbeddingFunction):
-    def __init__(self, model: str = "nomic-embed-text", prefix: str = "search_document: ") -> None:
+    def __init__(
+        self,
+        model: str = "nomic-embed-text",
+        prefix: str = "search_document: ",
+        redis_url: str | None = None,
+    ) -> None:
         self.model = model
         self.prefix = prefix
+        self._redis = None
+        url = redis_url or os.environ.get("REDIS_URL")
+        if url:
+            try:
+                client = redis.Redis.from_url(url, decode_responses=False)
+                client.ping()
+                self._redis = client
+            except redis.RedisError:
+                print("[WARNING] Redis unavailable — embedding cache disabled")
+
+    def _cache_key(self, text: str) -> bytes:
+        h = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        return f"embed:{h}".encode()
+
+    def _cache_get(self, key: bytes) -> list[float] | None:
+        if self._redis is None:
+            return None
+        try:
+            raw = self._redis.get(key)
+            if raw is None:
+                return None
+            return np.frombuffer(raw, dtype=np.float32).tolist()
+        except redis.RedisError:
+            return None
+
+    def _cache_set(self, key: bytes, vector: list[float]) -> None:
+        if self._redis is None:
+            return
+        try:
+            self._redis.set(key, np.array(vector, dtype=np.float32).tobytes(), ex=CACHE_TTL)
+        except redis.RedisError:
+            pass
 
     def __call__(self, input: list[str]) -> list[list[float]]:
-        result = ollama.embed(
-            model=self.model,
-            input=[self.prefix + t for t in list(input)],
-        )
-        return result.embeddings
+        prefixed = [self.prefix + t for t in list(input)]
+
+        cached: dict[int, list[float]] = {}
+        miss_indices: list[int] = []
+        for i, text in enumerate(prefixed):
+            key = self._cache_key(text)
+            vec = self._cache_get(key)
+            if vec is not None:
+                cached[i] = vec
+            else:
+                miss_indices.append(i)
+
+        if miss_indices:
+            miss_texts = [prefixed[i] for i in miss_indices]
+            result = ollama.embed(model=self.model, input=miss_texts)
+            for idx, vec in zip(miss_indices, result.embeddings):
+                self._cache_set(self._cache_key(prefixed[idx]), vec)
+                cached[idx] = vec
+
+        return [cached[i] for i in range(len(prefixed))]
 
 
 def build_index(

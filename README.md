@@ -9,12 +9,14 @@ Pipeline: **load → chunk → embed/store → retrieve → generate → web UI*
 | Piece | Technology |
 |---|---|
 | Embeddings | Ollama · `nomic-embed-text` (768-dim) |
+| Embedding cache | Redis (in-memory, 24 h TTL) |
 | Vector store | ChromaDB (embedded, on disk) |
 | Generation | Ollama · `llama3.2:3b` |
 | Web UI | Streamlit |
 
 Everything runs in Docker via `docker compose`: an `ollama` service (with the
-models in a named volume) and an `app` service (Streamlit + ChromaDB).
+models in a named volume), a `redis` service (embedding cache), and an `app`
+service (Streamlit + ChromaDB).
 
 ## Prerequisites
 
@@ -101,6 +103,38 @@ answer with source filenames cited, e.g. `according to product-manual.pdf`.
 Indexing is the only step that writes to the database; a question only embeds the
 question itself and searches existing vectors — no re-indexing per question.
 
+## Redis caching
+
+Embedding is the slowest part of the pipeline — every chunk needs an
+`ollama.embed()` call. Redis caches these vectors in RAM so the same text is
+never embedded twice.
+
+### How it works
+
+```
+Embedding request
+  → check Redis for cached vector
+    → cache HIT:  return cached vector (sub-millisecond, no ollama call)
+    → cache MISS: call ollama.embed(), store result in Redis, return it
+```
+
+### Why only embeddings?
+
+| Component | Cacheable? | Why |
+|---|---|---|
+| Embeddings | ✅ Yes (Redis) | Same text = same vector, expensive to compute |
+| LLM generation | ❌ No | Every query gets a unique response |
+| Document loading | ❌ No | Already on disk, fast enough |
+| ChromaDB queries | ❌ No | ChromaDB has its own internal caching |
+
+### Cache details
+
+- **Storage:** In-memory (RAM), sub-millisecond access
+- **TTL:** 24 hours — vectors expire automatically, then re-embed on next access
+- **Graceful degradation:** If Redis is down, the app works without cache (slower)
+- **Key:** SHA-256 hash of the prefixed text (`search_document:` for docs,
+  `search_query:` for queries)
+
 ## Configuration
 
 | Setting | Where | Default |
@@ -112,6 +146,8 @@ question itself and searches existing vectors — no re-indexing per question.
 | Generation temperature | `src/generate.py` | 0.2 |
 | Similarity metric | `src/indexing.py` | cosine |
 | Ollama endpoint | `docker-compose.yml` (`OLLAMA_HOST`) | `http://ollama:11434` |
+| Redis endpoint | `docker-compose.yml` (`REDIS_URL`) | `redis://redis:6379` |
+| Embedding cache TTL | `src/indexing.py` (`CACHE_TTL`) | 86400 (24 hours) |
 
 ## Testing
 
@@ -130,6 +166,7 @@ services (Ollama, ChromaDB) are mocked so tests are fast and deterministic.
 | `tests/test_loaders.py` | `.txt`/`.md`/`.pdf` loading, empty/mixed-page PDFs, unsupported formats |
 | `tests/test_generate.py` | Citation resolution, Ollama call parameters, context building |
 | `tests/test_retrieval.py` | Query validation, Hit object creation, ChromaDB mock integration |
+| `tests/test_indexing.py` | Redis caching: cache hit, cache miss, graceful degradation, TTL, cache keys |
 
 ## Troubleshooting
 
@@ -150,6 +187,15 @@ Check the app container is up and healthy: `docker compose ps`. If it shows
 
 **A file is skipped with "Skipping unsupported file: ..."**
 `loaders.py` only handles `.txt`, `.md`, and `.pdf`. Rename/convert the file.
+
+**Redis warning in logs ("Redis unavailable — embedding cache disabled")**
+Redis is optional — the app works without it. Embeddings will be slower because
+every chunk is re-computed on each indexing run. To fix:
+```bash
+docker compose ps          # check if redis is running
+docker compose logs redis  # check for errors
+docker compose restart redis
+```
 
 **An uploaded file produces 0 chunks (warning: "produced 0 chunks").**
 The file has no extractable text — typically a scanned PDF or one using
