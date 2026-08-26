@@ -122,10 +122,10 @@ Embedding request
 
 | Component | Cacheable? | Why |
 |---|---|---|
-| Embeddings | ✅ Yes (Redis) | Same text = same vector, expensive to compute |
-| LLM generation | ❌ No | Every query gets a unique response |
-| Document loading | ❌ No | Already on disk, fast enough |
-| ChromaDB queries | ❌ No | ChromaDB has its own internal caching |
+| Embeddings | Yes (Redis) | Same text = same vector, expensive to compute |
+| LLM generation | No | Every query gets a unique response |
+| Document loading | No | Already on disk, fast enough |
+| ChromaDB queries | No | ChromaDB has its own internal caching |
 
 ### Cache details
 
