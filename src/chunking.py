@@ -1,5 +1,6 @@
 import re
 
+from config import CHUNK_OVERLAP, CHUNK_SIZE
 from loaders import load_documents
 
 
@@ -8,7 +9,11 @@ def _split_sentences(text: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
-def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
+def chunk_text(
+    text: str,
+    chunk_size: int = CHUNK_SIZE,
+    overlap: int = CHUNK_OVERLAP,
+) -> list[str]:
     if not text.strip():
         return []
 
@@ -38,7 +43,7 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]
 
 
 if __name__ == "__main__":
-    chunk_size, overlap = 500, 50
+    chunk_size, overlap = CHUNK_SIZE, CHUNK_OVERLAP
 
     text = ""
     for doc in load_documents():

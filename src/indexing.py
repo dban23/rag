@@ -9,19 +9,22 @@ import redis
 from chromadb.api.types import EmbeddingFunction
 
 from chunking import chunk_text
-from loaders import DATA_DIR, PROJECT_ROOT, load_documents
-
-CHROMA_DIR = PROJECT_ROOT / "chroma_db"
-COLLECTION_NAME = "product_manual"
-
-CACHE_TTL = 86400  # 24 hours
+from config import (
+    CACHE_TTL,
+    CHROMA_DIR,
+    COLLECTION_NAME,
+    EMBED_DOC_PREFIX,
+    EMBEDDING_MODEL,
+    SIMILARITY_METRIC,
+)
+from loaders import DATA_DIR, load_documents
 
 
 class OllamaEmbedder(EmbeddingFunction):
     def __init__(
         self,
-        model: str = "nomic-embed-text",
-        prefix: str = "search_document: ",
+        model: str = EMBEDDING_MODEL,
+        prefix: str = EMBED_DOC_PREFIX,
         redis_url: str | None = None,
     ) -> None:
         self.model = model
@@ -96,7 +99,7 @@ def build_index(
     collection = client.get_or_create_collection(
         name=collection_name,
         embedding_function=OllamaEmbedder(),
-        metadata={"hnsw:space": "cosine"},
+        metadata={"hnsw:space": SIMILARITY_METRIC},
     )
 
     documents = []

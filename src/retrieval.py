@@ -2,7 +2,8 @@ from dataclasses import dataclass
 
 import chromadb
 
-from indexing import OllamaEmbedder, CHROMA_DIR, COLLECTION_NAME
+from config import CHROMA_DIR, COLLECTION_NAME, EMBED_QUERY_PREFIX, K
+from indexing import OllamaEmbedder
 
 
 @dataclass
@@ -14,13 +15,14 @@ class Hit:
     distance: float
 
 
-def retrieve(query: str, k: int = 5) -> list[Hit]:
+def retrieve(query: str, k: int = K) -> list[Hit]:
     if not query.strip():
         return []
 
     client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     collection = client.get_collection(
-        COLLECTION_NAME, embedding_function=OllamaEmbedder(prefix="search_query: ")
+        COLLECTION_NAME,
+        embedding_function=OllamaEmbedder(prefix=EMBED_QUERY_PREFIX),
     )
 
     results = collection.query(query_texts=[query], n_results=k)

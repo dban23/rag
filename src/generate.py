@@ -1,6 +1,7 @@
 import re
 
 import ollama
+from config import GENERATION_MODEL, GENERATION_TEMPERATURE
 from retrieval import Hit, retrieve
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer using ONLY the provided context. If the answer is not in the context, say you don't know. When you use a passage, cite it like [1]. Cite only the passages you actually used."
@@ -27,12 +28,12 @@ def generate(question: str, hits: list[Hit]) -> str:
     user_text = f"Context:\n{context}\n\nQuestion: {question}"
 
     response = ollama.chat(
-        model="llama3.2:3b",
+        model=GENERATION_MODEL,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_text},
         ],
-        options={"temperature": 0.2},
+        options={"temperature": GENERATION_TEMPERATURE},
     )
 
     return resolve_citations(response["message"]["content"], hits)

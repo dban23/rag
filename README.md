@@ -1,8 +1,8 @@
-# Local RAG Tool
+# Local RAG application
 
 A step-by-step local Retrieval-Augmented Generation (RAG) pipeline that lets you ask
-questions against your own documents, fully offline and private — no cloud services,
-no API keys.
+questions against your own documents. Fully offline, private (no cloud services,
+no API keys) and free.
 
 Pipeline: **load → chunk → embed/store → retrieve → generate → web UI**
 
@@ -28,7 +28,7 @@ service (Streamlit + ChromaDB).
 ## First-time setup (one-time only)
 
 ```bash
-# 1. Build the images and start both services
+# 1. Build the images and start the stack (ollama, redis, app)
 make setup
 
 # 2. Pull the models into the ollama volume (~2.2 GB, happens once)
@@ -38,7 +38,7 @@ make pull-llm
 make index
 
 # 4. Confirm everything is healthy
-docker compose ps
+make health
 ```
 
 Then open http://localhost:8501 in your browser.
@@ -51,8 +51,10 @@ rebuilds the whole collection, so it is safe to re-run any time.
 
 ```bash
 make up      # start the stack
+make health  # show container status
 make down    # stop it (volumes and models are kept)
 make logs    # follow the app logs
+make help    # list all available commands
 ```
 
 `docker compose up` starts the same containers every time — the models stay in
@@ -60,15 +62,17 @@ the `ollama_data` volume, so there is no re-download.
 
 ## Adding new files
 
+Upload a file directly through the web UI: **sidebar →
+Add a document → Index it**. It saves the file into `data/` and rebuilds the
+index for you — the file is queryable immediately and persists across restarts.
+
+Alternatively:
 1. Copy the files into the `data/` volume, e.g.
    `docker compose cp my-doc.pdf app:/app/data/` (supported: `.txt`, `.md`, `.pdf`).
 2. Re-run `make index`.
 3. Ask again in the web app — **no Streamlit restart needed**; the app reads the
    database fresh on every question.
 
-Alternatively, you can upload a file directly through the web UI: **sidebar →
-Add a document → Index it**. It saves the file into `data/` and rebuilds the
-index for you — the file is queryable immediately and persists across restarts.
 
 ### Removing files
 
@@ -94,7 +98,7 @@ answer with source filenames cited, e.g. `according to product-manual.pdf`.
 | Phase | File | What it does |
 |---|---|---|
 | Load | `src/loaders.py` | Reads `.txt`/`.md`/`.pdf` files from `data/` into `{"filename", "text"}` |
-| Chunk | `src/chunking.py` | Splits text into sentence-aware ~500-char chunks with 50-char overlap |
+| Chunk | `src/chunking.py` | Splits text into sentence-aware chunks (defaults ~500 chars, 50 overlap — see `src/config.py`) |
 | Embed + store | `src/indexing.py` | Embeds each chunk with `nomic-embed-text` and stores vectors + text in ChromaDB |
 | Retrieve | `src/retrieval.py` | Embeds the question, finds the k most similar chunks, returns them with distances |
 | Generate | `src/generate.py` | Sends the retrieved passages + question to `llama3.2:3b`, returns a grounded answer with citations |
@@ -102,6 +106,24 @@ answer with source filenames cited, e.g. `according to product-manual.pdf`.
 
 Indexing is the only step that writes to the database; a question only embeds the
 question itself and searches existing vectors — no re-indexing per question.
+
+## Task prefixes (asymmetric search)
+
+`nomic-embed-text` is trained with a task prefix prepended to every input, so it
+has to see the same prefix at index time and query time to behave correctly.
+Documents are embedded one way, questions another:
+
+| Text | Prefix | Used when |
+|---|---|---|
+| Document chunks | `search_document: ` | Indexing (`build_index`) |
+| User question | `search_query: ` | Retrieval (`retrieve`) |
+
+This is "asymmetric search": documents live in a different region of the vector
+space than queries, which embeds them closer to the questions that would retrieve
+them. Without the prefixes, the model receives text it was not trained on, and
+retrieval quality drops significantly (in testing, the relevant chunk went from
+rank 14 to rank 2 after adding them). Both prefixes are configurable in
+`src/config.py` (`EMBED_DOC_PREFIX` / `EMBED_QUERY_PREFIX`).
 
 ## Redis caching
 
@@ -137,17 +159,34 @@ Embedding request
 
 ## Configuration
 
+All application-level settings live in one place: **`src/config.py`**. Change a
+value there and it applies everywhere. Endpoints that are Docker-network 
+details stay in `docker-compose.yml`.
+
 | Setting | Where | Default |
 |---|---|---|
-| Chunk size / overlap | `src/chunking.py` | 500 / 50 |
-| Number of retrieved passages (`k`) | `src/retrieval.py` | 5 |
-| Embedding model | `src/indexing.py` | `nomic-embed-text` |
-| Generation model | `src/generate.py` | `llama3.2:3b` |
-| Generation temperature | `src/generate.py` | 0.2 |
-| Similarity metric | `src/indexing.py` | cosine |
+| Chunk size / overlap | `src/config.py` (`CHUNK_SIZE` / `CHUNK_OVERLAP`) | 500 / 50 |
+| Number of retrieved passages (`k`) | `src/config.py` (`K`) | 5 |
+| Embedding model | `src/config.py` (`EMBEDDING_MODEL`) | `nomic-embed-text` |
+| Document / query prefixes | `src/config.py` (`EMBED_DOC_PREFIX` / `EMBED_QUERY_PREFIX`) | `search_document: ` / `search_query: ` |
+| Generation model | `src/config.py` (`GENERATION_MODEL`) | `llama3.2:3b` |
+| Generation temperature | `src/config.py` (`GENERATION_TEMPERATURE`) | 0.2 |
+| Similarity metric | `src/config.py` (`SIMILARITY_METRIC`) | cosine |
+| Embedding cache TTL | `src/config.py` (`CACHE_TTL`) | 86400 (24 hours) |
+| Collection name | `src/config.py` (`COLLECTION_NAME`) | `documents` |
 | Ollama endpoint | `docker-compose.yml` (`OLLAMA_HOST`) | `http://ollama:11434` |
 | Redis endpoint | `docker-compose.yml` (`REDIS_URL`) | `redis://redis:6379` |
-| Embedding cache TTL | `src/indexing.py` (`CACHE_TTL`) | 86400 (24 hours) |
+
+Changing `EMBEDDING_MODEL`, `SIMILARITY_METRIC`, or `COLLECTION_NAME` requires
+re-running `make index` to rebuild the vector collection.
+
+Because `src/` is baked into the Docker image, any change to `src/config.py`
+takes effect only after rebuilding:
+
+```bash
+make setup   # rebuild the app image and start the stack
+make index   # if the model, metric, or collection changed
+```
 
 ## Testing
 
@@ -175,14 +214,14 @@ The `app` container waits for the `ollama` service to be healthy before starting
 Check the stack state:
 
 ```bash
-docker compose ps
+make health
 docker compose logs ollama
 ```
 
 If the models were never pulled, run `make pull-llm` (with the stack up).
 
 **The page won't load.**
-Check the app container is up and healthy: `docker compose ps`. If it shows
+Check the app container is up and healthy: `make health`. If it shows
 `unhealthy`, look at the logs with `make logs`.
 
 **A file is skipped with "Skipping unsupported file: ..."**
@@ -192,8 +231,8 @@ Check the app container is up and healthy: `docker compose ps`. If it shows
 Redis is optional — the app works without it. Embeddings will be slower because
 every chunk is re-computed on each indexing run. To fix:
 ```bash
-docker compose ps          # check if redis is running
-docker compose logs redis  # check for errors
+make health                 # check if redis is running
+docker compose logs redis   # check for errors
 docker compose restart redis
 ```
 
