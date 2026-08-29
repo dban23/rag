@@ -163,19 +163,19 @@ All application-level settings live in one place: **`src/config.py`**. Change a
 value there and it applies everywhere. Endpoints that are Docker-network 
 details stay in `docker-compose.yml`.
 
-| Setting | Where | Default |
-|---|---|---|
-| Chunk size / overlap | `src/config.py` (`CHUNK_SIZE` / `CHUNK_OVERLAP`) | 500 / 50 |
-| Number of retrieved passages (`k`) | `src/config.py` (`K`) | 5 |
-| Embedding model | `src/config.py` (`EMBEDDING_MODEL`) | `nomic-embed-text` |
-| Document / query prefixes | `src/config.py` (`EMBED_DOC_PREFIX` / `EMBED_QUERY_PREFIX`) | `search_document: ` / `search_query: ` |
-| Generation model | `src/config.py` (`GENERATION_MODEL`) | `llama3.2:3b` |
-| Generation temperature | `src/config.py` (`GENERATION_TEMPERATURE`) | 0.2 |
-| Similarity metric | `src/config.py` (`SIMILARITY_METRIC`) | cosine |
-| Embedding cache TTL | `src/config.py` (`CACHE_TTL`) | 86400 (24 hours) |
-| Collection name | `src/config.py` (`COLLECTION_NAME`) | `documents` |
-| Ollama endpoint | `docker-compose.yml` (`OLLAMA_HOST`) | `http://ollama:11434` |
-| Redis endpoint | `docker-compose.yml` (`REDIS_URL`) | `redis://redis:6379` |
+| Setting | Where | Name | Default |
+|---|---|---|---|
+| Chunk size / overlap | `src/config.py` | `CHUNK_SIZE` / `CHUNK_OVERLAP` | 500 / 50 |
+| Number of retrieved passages  | `src/config.py` | `K` | 5 |
+| Embedding model | `src/config.py` | `EMBEDDING_MODEL` | `nomic-embed-text` |
+| Document / query prefixes | `src/config.py` | `EMBED_DOC_PREFIX` / `EMBED_QUERY_PREFIX` | `search_document: ` / `search_query: ` |
+| Generation model | `src/config.py` | `GENERATION_MODEL` | `llama3.2:3b` |
+| Generation temperature | `src/config.py` | `GENERATION_TEMPERATURE` | 0.2 |
+| Similarity metric | `src/config.py` | `SIMILARITY_METRIC` | cosine |
+| Embedding cache TTL | `src/config.py` | `CACHE_TTL` | 86400 (24 hours) |
+| Collection name | `src/config.py` | `COLLECTION_NAME` | `documents` |
+| Ollama endpoint | `docker-compose.yml` | `OLLAMA_HOST` | `http://ollama:11434` |
+| Redis endpoint | `docker-compose.yml` | `REDIS_URL` | `redis://redis:6379` |
 
 Changing `EMBEDDING_MODEL`, `SIMILARITY_METRIC`, or `COLLECTION_NAME` requires
 re-running `make index` to rebuild the vector collection.
